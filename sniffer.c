@@ -23,7 +23,6 @@
 #define BUF_SZ 2048
 
 char in_buf[BUF_SZ];
-int tcp=0;
 struct sockaddr_in source,dest;
 FILE* logfile;
 void hex_print(char *buf, int len) {
@@ -41,10 +40,9 @@ void hex_print(char *buf, int len) {
 void ProcessPacket(unsigned char* buffer, int size)
 {
     struct iphdr *iph = (struct iphdr*)buffer;
-    if (iph->protocol == 6){
-            ++tcp;
-            print_tcp_packet(buffer , size);
-    }
+    if (iph->protocol == 6)
+        print_tcp_packet(buffer , size);
+    else printf("Protocol error");
 }
 
 void print_ip_header(unsigned char* Buffer, int Size)
@@ -94,8 +92,6 @@ void print_tcp_packet(unsigned char* Buffer, int Size)
     fprintf(logfile,"   |-Sequence Number    : %u\n",ntohl(tcph->seq));
     fprintf(logfile,"   |-Acknowledge Number : %u\n",ntohl(tcph->ack_seq));
     fprintf(logfile,"   |-Header Length      : %d DWORDS or %d BYTES\n" ,(unsigned int)tcph->doff,(unsigned int)tcph->doff*4);
-    //fprintf(logfile,"   |-CWR Flag : %d\n",(unsigned int)tcph->cwr);
-    //fprintf(logfile,"   |-ECN Flag : %d\n",(unsigned int)tcph->ece);
     fprintf(logfile,"   |-Urgent Flag          : %d\n",(unsigned int)tcph->urg);
     fprintf(logfile,"   |-Acknowledgement Flag : %d\n",(unsigned int)tcph->ack);
     fprintf(logfile,"   |-Push Flag            : %d\n",(unsigned int)tcph->psh);
@@ -161,14 +157,15 @@ void PrintData (unsigned char* data , int Size)
 
 int main(int argc, char *argv[]) {
     logfile=fopen("log.txt","w");
-	int raw_sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+	int raw_sock = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
 	exit_on_error(raw_sock);
 
-	int read_cnt;
+	int read_cnt=0;
 	while (0 < (read_cnt = read(raw_sock, in_buf, BUF_SZ))) {
         ProcessPacket(in_buf, read_cnt);
 		hex_print(in_buf, read_cnt);
 	}
 	close(raw_sock);
+	close(logfile);
 	return 0;
 }
